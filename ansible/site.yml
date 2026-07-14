@@ -1,0 +1,21 @@
+---
+# 1. Настройка веб-серверов Nginx и установка Node Exporter
+- name: Configure Web Servers
+  hosts: web
+  become: yes
+  roles:
+    - web
+
+# 2. Настройка мониторинга (Prometheus на одном хосте, Grafana на другом)
+- name: Configure Monitoring (Prometheus & Grafana)
+  hosts: monitoring
+  become: yes
+  roles:
+    - monitoring
+
+# 3. Настройка централизованного сбора логов (Elasticsearch, Kibana, Filebeat)
+- name: Configure Centralized Logging
+  hosts: all
+  become: yes
+  roles:
+    - logging

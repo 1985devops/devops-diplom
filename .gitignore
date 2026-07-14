@@ -1,0 +1,8 @@
+# Игнорируем файлы состояния Terraform
+*.tfstate
+*.tfstate.backup
+
+# Игнорируем локальный кэш и секреты
+.terraform/
+*.id_ed25519
+*.id_rsa

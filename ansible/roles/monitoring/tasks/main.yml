@@ -1,0 +1,50 @@
+---
+# ==============================================================================
+# УСТАНОВКА И НАСТРОЙКА PROMETHEUS (только на prometheus-host)
+# ==============================================================================
+
+- name: Install Prometheus via apt from standard repositories
+  apt:
+    name: prometheus
+    state: present
+    update_cache: yes
+  when: inventory_hostname == 'prometheus-host'
+
+- name: Deploy clean Prometheus configuration file
+  copy:
+    dest: /etc/prometheus/prometheus.yml
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: 'node_exporter'
+          static_configs:
+            - targets: ['10.120.10.11:9100', '10.130.10.22:9100']
+  when: inventory_hostname == 'prometheus-host'
+
+- name: Ensure Prometheus service is running and enabled
+  service:
+    name: prometheus
+    state: restarted
+    enabled: yes
+  when: inventory_hostname == 'prometheus-host'
+
+# ==============================================================================
+# УСТАНОВКА И НАСТРОЙКА GRAFANA (только на grafana-host)
+# ==============================================================================
+
+- name: Download Grafana Enterprise package from verified mirror path
+  shell: "wget -q -O /tmp/grafana-enterprise_12.4.5_27960329288_linux_amd64.deb https://mirror.yandex.ru/mirrors/packages.grafana.com/oss/deb/pool/main/g/grafana-enterprise/grafana-enterprise_12.4.5_27960329288_linux_amd64.deb"
+  when: inventory_hostname == 'grafana-host'
+
+- name: Install Grafana deb package locally
+  shell: "dpkg -i /tmp/grafana-enterprise_12.4.5_27960329288_linux_amd64.deb || true"
+  when: inventory_hostname == 'grafana-host'
+
+- name: Fix missing dependencies and force start grafana
+  shell: |
+    apt-get install -f -y
+    systemctl daemon-reload
+    systemctl enable grafana-server
+    systemctl start grafana-server
+  when: inventory_hostname == 'grafana-host'

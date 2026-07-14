@@ -1,0 +1,31 @@
+---
+- name: Update apt cache and install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Start and enable nginx service
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Copy static website content
+  copy:
+    src: index.html
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Install Node Exporter via apt
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Ensure Node Exporter is running and enabled
+  service:
+    name: prometheus-node-exporter
+    state: started
+    enabled: yes

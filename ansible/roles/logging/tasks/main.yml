@@ -1,0 +1,85 @@
+---
+# 1. Подключаем зеркало Яндекса в доверенном режиме без проверки GPG-подписей
+- name: Add Elastic Repository via Trusted Yandex Mirror
+  apt_repository:
+    repo: "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/7/ stable main"
+    state: present
+    update_cache: yes
+    codename: stable
+  when: "inventory_hostname in groups['web'] or inventory_hostname == 'elasticsearch-host' or inventory_hostname == 'kibana-host'"
+
+# 2. Установка Elasticsearch на сервер логов
+- name: Install Elasticsearch
+  apt:
+    name: elasticsearch
+    state: present
+  when: inventory_hostname == 'elasticsearch-host'
+
+- name: Configure Elasticsearch Network Listen
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^#?network.host:'
+    line: 'network.host: 0.0.0.0'
+  when: inventory_hostname == 'elasticsearch-host'
+
+- name: Configure Elasticsearch Cluster Discovery Type
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^#?discovery.type:'
+    line: 'discovery.type: single-node'
+  when: inventory_hostname == 'elasticsearch-host'
+
+- name: Start and enable Elasticsearch service
+  service:
+    name: elasticsearch
+    state: started
+    enabled: yes
+  when: inventory_hostname == 'elasticsearch-host'
+
+# 3. Установка Kibana на её хост
+- name: Install Kibana
+  apt:
+    name: kibana
+    state: present
+  when: inventory_hostname == 'kibana-host'
+
+- name: Configure Kibana Web Host Interface
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?server.host:'
+    line: 'server.host: "0.0.0.0"'
+  when: inventory_hostname == 'kibana-host'
+
+- name: Configure Kibana Connection to Elasticsearch
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?elasticsearch.hosts:'
+    line: 'elasticsearch.hosts: ["http://10.120.10.18:9200"]'
+  when: inventory_hostname == 'kibana-host'
+
+- name: Start and enable Kibana service
+  service:
+    name: kibana
+    state: started
+    enabled: yes
+  when: inventory_hostname == 'kibana-host'
+
+# 4. Установка Filebeat на веб-сервера
+- name: Install Filebeat on Web Servers
+  apt:
+    name: filebeat
+    state: present
+  when: "inventory_hostname in groups['web']"
+
+- name: Deploy Filebeat Configuration File from Template
+  template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+  when: "inventory_hostname in groups['web']"
+
+- name: Start and enable Filebeat service
+  service:
+    name: filebeat
+    state: started
+    enabled: yes
+  when: "inventory_hostname in groups['web']"

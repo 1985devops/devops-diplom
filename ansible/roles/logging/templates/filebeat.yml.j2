@@ -1,0 +1,12 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/access.log
+    - /var/log/nginx/error.log
+
+output.elasticsearch:
+  hosts: ["10.120.10.18:9200"]
+
+setup.kibana:
+  host: "10.110.10.0:5601"
