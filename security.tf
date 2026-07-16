@@ -1,62 +1,104 @@
-resource "yandex_vpc_security_group" "main_sg" {
-  name       = "main-security-group"
-  network_id = data.yandex_vpc_network.main.id
+# 1. ГРУППА ДЛЯ BASTION-ХОСТА (Доступ по SSH только вам)
+resource "yandex_vpc_security_group" "bastion" {
+  name       = "bastion-sg"
+  network_id = yandex_vpc_network.main.id
 
-  # Разрешаем весь исходящий трафик (для скачивания пакетов и обновлений)
+  ingress {
+    protocol       = "TCP"
+    v4_cidr_blocks = ["109.124.110.26/32"] # Ваш IP
+    port           = 22
+  }
   egress {
     protocol       = "ANY"
-    description    = "Allow all outbound traffic"
     v4_cidr_blocks = ["0.0.0.0/0"]
-    from_port      = 0
-    to_port        = 65535
   }
+}
 
-  # Разрешаем входящий SSH только изнутри сети (для доступа через Bastion)
+# 2. ГРУППА ДЛЯ БАЛАНСИРОВЩИКА (ALB) (Принимает HTTP со всего интернета)
+resource "yandex_vpc_security_group" "alb" {
+  name       = "alb-sg"
+  network_id = yandex_vpc_network.main.id
+
   ingress {
     protocol       = "TCP"
-    description    = "Allow SSH from internal network via Bastion"
-    v4_cidr_blocks = ["10.10.10.0/24", "10.20.10.0/24", "10.30.10.0/24"]
-    port           = 22
-  }
-
-  # Разрешаем входящий SSH на сам Bastion Host из интернета
-  ingress {
-    protocol       = "TCP"
-    description    = "Allow SSH to Bastion from anywhere"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 22
-  }
-
-  # Разрешаем веб-трафик (HTTP порт 80)
-  ingress {
-    protocol       = "TCP"
-    description    = "Allow HTTP traffic"
     v4_cidr_blocks = ["0.0.0.0/0"]
     port           = 80
   }
+  egress {
+    protocol       = "ANY"
+    v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
-  # Разрешаем доступ к интерфейсу Grafana
+# 3. ГРУППА ДЛЯ WEB-СЕРВЕРОВ (Принимают трафик ТОЛЬКО от балансировщика и Bastion)
+resource "yandex_vpc_security_group" "web" {
+  name       = "web-sg"
+  network_id = yandex_vpc_network.main.id
+
   ingress {
     protocol       = "TCP"
-    description    = "Allow Grafana"
+    security_group_id = yandex_vpc_security_group.alb.id # Только от ALB
+    port           = 80
+  }
+  ingress {
+    protocol       = "TCP"
+    security_group_id = yandex_vpc_security_group.bastion.id # SSH от Bastion
+    port           = 22
+  }
+  egress {
+    protocol       = "ANY"
     v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# 4. ГРУППА ДЛЯ МОНИТОРИНГА (Grafana/Prometheus — доступ к 3000 только вам)
+resource "yandex_vpc_security_group" "monitoring" {
+  name       = "monitoring-sg"
+  network_id = yandex_vpc_network.main.id
+
+  ingress {
+    protocol       = "TCP"
+    v4_cidr_blocks = ["109.124.110.26/32"] # Доступ к Grafana только вам
     port           = 3000
   }
-
-  # Разрешаем доступ к интерфейсу Kibana
   ingress {
     protocol       = "TCP"
-    description    = "Allow Kibana"
+    v4_cidr_blocks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] # Сбор метрик внутри сети
+    port           = 9090
+  }
+  ingress {
+    protocol       = "TCP"
+    security_group_id = yandex_vpc_security_group.bastion.id # SSH от Bastion
+    port           = 22
+  }
+  egress {
+    protocol       = "ANY"
     v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# 5. ГРУППА ДЛЯ ЛОГИРОВАНИЯ (Kibana/Elasticsearch — доступ к 5601 только вам)
+resource "yandex_vpc_security_group" "logging" {
+  name       = "logging-sg"
+  network_id = yandex_vpc_network.main.id
+
+  ingress {
+    protocol       = "TCP"
+    v4_cidr_blocks = ["109.124.110.26/32"] # Доступ к Kibana только вам
     port           = 5601
   }
-
-  # Разрешаем полное внутреннее взаимодействие между всеми нашими подсетями
   ingress {
+    protocol       = "TCP"
+    v4_cidr_blocks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] # Прием логов внутри сети
+    port           = 9200
+  }
+  ingress {
+    protocol       = "TCP"
+    security_group_id = yandex_vpc_security_group.bastion.id # SSH от Bastion
+    port           = 22
+  }
+  egress {
     protocol       = "ANY"
-    description    = "Allow internal communication"
-    v4_cidr_blocks = ["10.0.0.0/8"]
-    from_port      = 0
-    to_port        = 65535
+    v4_cidr_blocks = ["0.0.0.0/0"]
   }
 }

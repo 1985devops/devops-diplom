@@ -34,7 +34,7 @@ resource "yandex_compute_instance" "bastion" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.public.id
     nat                = true
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.bastion.id]
   }
 
   metadata = local.common_meta
@@ -66,7 +66,7 @@ resource "yandex_compute_instance" "web1" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.private_a.id
     nat                = false
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.web.id]
   }
 
   metadata = local.common_meta
@@ -98,7 +98,7 @@ resource "yandex_compute_instance" "web2" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.private_b.id
     nat                = false
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.web.id]
   }
 
   metadata = local.common_meta
@@ -130,7 +130,7 @@ resource "yandex_compute_instance" "prometheus" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.private_a.id
     nat                = false
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.monitoring.id]
   }
 
   metadata = local.common_meta
@@ -162,7 +162,7 @@ resource "yandex_compute_instance" "grafana" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.public.id
     nat                = true
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.monitoring.id]
   }
 
   metadata = local.common_meta
@@ -194,7 +194,7 @@ resource "yandex_compute_instance" "elasticsearch" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.private_a.id
     nat                = false
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.logging.id]
   }
 
   metadata = local.common_meta
@@ -226,8 +226,34 @@ resource "yandex_compute_instance" "kibana" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.public.id
     nat                = true
-    security_group_ids = [yandex_vpc_security_group.main_sg.id]
+    security_group_ids = [yandex_vpc_security_group.logging.id]
   }
 
   metadata = local.common_meta
+}
+
+# Единое расписание резервного копирования для всех дисков
+resource "yandex_compute_snapshot_schedule" "default" {
+  name        = "diplom-snapshot-schedule"
+  description = "Ежедневные бэкапы дисков всей инфраструктуры диплома"
+
+  schedule_policy {
+    expression = "0 0 * * *" # Каждый день в полночь
+  }
+
+  retention_period = "168h" # Хранить бэкапы 7 дней
+
+  snapshot_spec {
+    description = "Автоматический снимок"
+  }
+
+  # ВОТ ЗДЕСЬ мы перечисляем диски всех ваших машин:
+  disk_ids = [
+    yandex_compute_instance.bastion.boot_disk[0].disk_id,
+    yandex_compute_instance.web1.boot_disk[0].disk_id,
+    yandex_compute_instance.web2.boot_disk[0].disk_id,
+    yandex_compute_instance.prometheus.boot_disk[0].disk_id,
+    yandex_compute_instance.grafana.boot_disk[0].disk_id,
+    yandex_compute_instance.elasticsearch.boot_disk[0].disk_id
+  ]
 }

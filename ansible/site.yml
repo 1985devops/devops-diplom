@@ -15,7 +15,7 @@
 
 # 3. Настройка централизованного сбора логов (Elasticsearch, Kibana, Filebeat)
 - name: Configure Centralized Logging
-  hosts: all
+  hosts: logs, monitoring, web
   become: yes
   roles:
     - logging

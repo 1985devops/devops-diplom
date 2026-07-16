@@ -54,7 +54,7 @@
   lineinfile:
     path: /etc/kibana/kibana.yml
     regexp: '^#?elasticsearch.hosts:'
-    line: 'elasticsearch.hosts: ["http://10.120.10.18:9200"]'
+    line: 'elasticsearch.hosts: ["http://{{ hostvars["elasticsearch-host"]["ansible_host"] }}:9200"]'
   when: inventory_hostname == 'kibana-host'
 
 - name: Start and enable Kibana service

@@ -62,8 +62,8 @@ resource "yandex_alb_virtual_host" "web_vhost" {
 # 4. Сам Application Load Balancer в публичной подсети с группой безопасности
 resource "yandex_alb_load_balancer" "web_balancer" {
   name               = "web-load-balancer"
-  network_id         = data.yandex_vpc_network.main.id
-  security_group_ids = [yandex_vpc_security_group.main_sg.id]
+  network_id         = yandex_vpc_network.main.id
+  security_group_ids = [yandex_vpc_security_group.alb.id]
 
   allocation_policy {
     location {

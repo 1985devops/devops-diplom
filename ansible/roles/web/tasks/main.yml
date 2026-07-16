@@ -29,3 +29,30 @@
     name: prometheus-node-exporter
     state: started
     enabled: yes
+
+- name: Install Nginx Prometheus Exporter via apt
+  apt:
+    name: prometheus-nginx-exporter
+    state: present
+
+- name: Configure Nginx stub_status for exporter
+  copy:
+    dest: /etc/nginx/conf.d/status.conf
+    content: |
+      server {
+          listen 127.0.0.1:80;
+          server_name localhost;
+          location /metrics {
+              stub_status on;
+              access_log off;
+              allow 127.0.0.1;
+              deny all;
+          }
+      }
+  notify: Restart nginx
+
+- name: Ensure Nginx Prometheus Exporter is running and enabled
+  service:
+    name: prometheus-nginx-exporter
+    state: started
+    enabled: yes

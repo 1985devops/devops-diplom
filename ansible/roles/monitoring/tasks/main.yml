@@ -3,11 +3,11 @@
 # УСТАНОВКА И НАСТРОЙКА PROMETHEUS (только на prometheus-host)
 # ==============================================================================
 
-- name: Install Prometheus via apt from standard repositories
-  apt:
-    name: prometheus
-    state: present
-    update_cache: yes
+- name: Ensure Prometheus config directory exists
+  file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
   when: inventory_hostname == 'prometheus-host'
 
 - name: Deploy clean Prometheus configuration file
@@ -19,14 +19,10 @@
       scrape_configs:
         - job_name: 'node_exporter'
           static_configs:
-            - targets: ['10.120.10.11:9100', '10.130.10.22:9100']
-  when: inventory_hostname == 'prometheus-host'
-
-- name: Ensure Prometheus service is running and enabled
-  service:
-    name: prometheus
-    state: restarted
-    enabled: yes
+            - targets: "{{ groups['web'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':9100') | list }}"
+       - job_name: 'nginx_exporter'
+          static_configs:
+            - targets: "{{ groups['web'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', ':9113') | list }}"
   when: inventory_hostname == 'prometheus-host'
 
 # ==============================================================================
